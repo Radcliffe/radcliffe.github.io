@@ -1,0 +1,10 @@
+---
+layout: post
+title:  "Welcome to my personal website"
+date:   2026-01-20 10:26:27 -0500
+categories: jekyll update
+---
+
+My name is David Radcliffe. I am an independent
+mathematician (Ph.D. 2001) and a software engineer
+in Saint Paul, Minnesota.
