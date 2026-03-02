@@ -5,8 +5,8 @@ date:   2026-02-28 13:12:00 -0500
 categories: math
 ---
 
-Let A, B, C be finite groups. If A × B and A × C are isomorphic,
-then B and C are also isomorphic. That is, the common factor A
+Let $A$, $B$, $C$ be finite groups. If $A \times B$ and $A \times C$ are isomorphic,
+then $B$ and $C$ are also isomorphic. That is, the common factor $A$
 can be cancelled from both sides of the equation.
 
 I learned a beautiful proof of this result
