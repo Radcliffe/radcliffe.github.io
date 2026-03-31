@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pappus</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --thin: #94a3b8;
+      --thin-hover: #2563eb;
+      --thick: #111827;
+      --point: #dc2626;
+      --point-outline: #ffffff;
+      --border: #d1d5db;
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: auto 260px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .canvas-wrap {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    canvas {
+      display: block;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      cursor: crosshair;
+    }
+
+    .sidebar {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .sidebar h1 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .counts {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .count-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fafafa;
+    }
+
+    .count-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .count-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .legend,
+    .notes {
+      margin-top: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 8px 0;
+    }
+
+    .swatch-line {
+      width: 36px;
+      height: 0;
+      border-top: 2px solid var(--thin);
+    }
+
+    .swatch-line.thick {
+      border-top: 5px solid var(--thick);
+    }
+
+    .swatch-point {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--point);
+      border: 2px solid var(--point-outline);
+      box-shadow: 0 0 0 1px #b91c1c;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #f8fafc;
+    }
+
+    .status {
+      margin-top: 14px;
+      min-height: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        max-width: 760px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="layout">
+      <div class="canvas-wrap">
+        <canvas id="canvas" width="760" height="760"></canvas>
+      </div>
+
+      <aside class="sidebar">
+        <h1>Pappus</h1>
+        <div>Plane configuration explorer</div>
+        <div class="counts">
+          <div class="count-card">
+            <div class="count-label">Points</div>
+            <div class="count-value" id="pointCount">0</div>
+          </div>
+          <div class="count-card">
+            <div class="count-label">Lines through exactly 3 points</div>
+            <div class="count-value" id="lineCount">0</div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <div><strong>Legend</strong></div>
+          <div class="legend-row"><span class="swatch-point"></span> Point</div>
+          <div class="legend-row"><span class="swatch-line"></span> Thin line through exactly 2 points</div>
+          <div class="legend-row"><span class="swatch-line thick"></span> Thick line through exactly 3 points</div>
+        </div>
+
+        <div class="controls">
+          <button id="clearBtn">Clear</button>
+          <button id="undoBtn">Undo</button>
+          <button id="exportBtn">Export</button>
+          <button id="importBtn">Import</button>
+        </div>
+
+        <textarea id="ioBox" rows="10" style="width:100%; margin-top:14px; border:1px solid var(--border); border-radius:10px; padding:10px; font:12px/1.4 monospace; resize:vertical;" placeholder="Exported configuration JSON, including explicit thick lines, will appear here. You can also paste JSON here to import."></textarea>
+
+        <div class="status" id="status"></div>
+
+        <div class="notes">
+          Click empty space to create a point. Click a point to delete it. Click a thin line or a thin-line intersection to snap a new point onto the relevant line(s). Thick lines are the only ones counted on the right.
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const pointCountEl = document.getElementById('pointCount');
+    const lineCountEl = document.getElementById('lineCount');
+    const statusEl = document.getElementById('status');
+    const clearBtn = document.getElementById('clearBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const ioBox = document.getElementById('ioBox');
+
+    const POINT_RADIUS = 7;
+    const POINT_HIT_RADIUS = 11;
+    const LINE_CLICK_TOLERANCE = 10;
+    const INTERSECTION_TOLERANCE = 12;
+    const GEOM_EPS = 1e-6;
+
+    let points = [];
+    let nextPointId = 1;
+    let history = [];
+    let hoverThinLineKeys = new Set();
+    let mouse = { x: -1000, y: -1000 };
+
+    function saveHistory() {
+      history.push({
+        points: points.map(p => ({ ...p })),
+        nextPointId,
+      });
+      if (history.length > 100) history.shift();
+    }
+
+    function restoreState(snapshot) {
+      points = snapshot.points.map(p => ({ ...p }));
+      nextPointId = snapshot.nextPointId;
+      recomputeAndDraw();
+    }
+
+    function setStatus(message) {
+      statusEl.textContent = message || '';
+    }
+
+    function getMousePos(evt) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+        y: (evt.clientY - rect.top) * (canvas.height / rect.height),
+      };
+    }
+
+    function dist(a, b) {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    function lineThroughPoints(p1, p2) {
+      const a = p1.y - p2.y;
+      const b = p2.x - p1.x;
+      const c = p1.x * p2.y - p2.x * p1.y;
+      const norm = Math.hypot(a, b);
+      if (norm < GEOM_EPS) return null;
+      let na = a / norm;
+      let nb = b / norm;
+      let nc = c / norm;
+      if (na < -GEOM_EPS || (Math.abs(na) <= GEOM_EPS && nb < -GEOM_EPS)) {
+        na *= -1;
+        nb *= -1;
+        nc *= -1;
+      }
+      return { a: na, b: nb, c: nc };
+    }
+
+    function lineKey(line) {
+      return [line.a, line.b, line.c].map(v => v.toFixed(6)).join('|');
+    }
+
+    function isPointOnLine(point, line, eps = 1.5) {
+      return Math.abs(line.a * point.x + line.b * point.y + line.c) <= eps;
+    }
+
+    function pointToLineDistance(point, line) {
+      return Math.abs(line.a * point.x + line.b * point.y + line.c);
+    }
+
+    function projectPointToLine(point, line) {
+      const d = line.a * point.x + line.b * point.y + line.c;
+      return {
+        x: point.x - line.a * d,
+        y: point.y - line.b * d,
+      };
+    }
+
+    function segmentBoundsContainsProjected(point, p1, p2, buffer = 2) {
+      return (
+        point.x >= Math.min(p1.x, p2.x) - buffer &&
+        point.x <= Math.max(p1.x, p2.x) + buffer &&
+        point.y >= Math.min(p1.y, p2.y) - buffer &&
+        point.y <= Math.max(p1.y, p2.y) + buffer
+      );
+    }
+
+    function dedupeLines(rawLines) {
+      const map = new Map();
+      for (const item of rawLines) {
+        const key = lineKey(item.line);
+        if (!map.has(key)) {
+          map.set(key, item);
+        } else {
+          const existing = map.get(key);
+          const pointIds = new Set([...existing.pointIds, ...item.pointIds]);
+          existing.pointIds = [...pointIds];
+          existing.points = existing.pointIds.map(id => points.find(p => p.id === id));
+        }
+      }
+      return [...map.values()];
+    }
+
+    function computeStructures() {
+      const uniqueByPointSet = new Map();
+
+      for (let i = 0; i < points.length; i++) {
+        for (let j = i + 1; j < points.length; j++) {
+          const l = lineThroughPoints(points[i], points[j]);
+          if (!l) continue;
+
+          const memberPoints = points
+            .filter(p => isPointOnLine(p, l))
+            .slice()
+            .sort((p, q) => p.x !== q.x ? p.x - q.x : p.y - q.y);
+
+          const memberKey = memberPoints.map(p => p.id).join('|');
+          if (!memberKey) continue;
+
+          if (!uniqueByPointSet.has(memberKey)) {
+            uniqueByPointSet.set(memberKey, {
+              key: memberKey,
+              line: l,
+              points: memberPoints,
+            });
+          }
+        }
+      }
+
+      const allLines = [...uniqueByPointSet.values()];
+
+      const thickLines = allLines.filter(item => item.points.length === 3);
+      const thinLines = allLines.filter(item => item.points.length === 2).map(item => {
+        const p1 = item.points[0];
+        const p2 = item.points[1];
+        return {
+          ...item,
+          p1,
+          p2,
+        };
+      });
+
+      return { allLines, thickLines, thinLines };
+    }
+
+    function computeThinIntersections(thinLines) {
+      const intersections = [];
+      const seen = new Map();
+
+      for (let i = 0; i < thinLines.length; i++) {
+        for (let j = i + 1; j < thinLines.length; j++) {
+          const l1 = thinLines[i].line;
+          const l2 = thinLines[j].line;
+          const det = l1.a * l2.b - l2.a * l1.b;
+          if (Math.abs(det) < GEOM_EPS) continue;
+
+          const x = (l1.b * l2.c - l2.b * l1.c) / det;
+          const y = (l2.a * l1.c - l1.a * l2.c) / det;
+          const pt = { x, y };
+
+          if (
+            !segmentBoundsContainsProjected(pt, thinLines[i].p1, thinLines[i].p2, INTERSECTION_TOLERANCE) ||
+            !segmentBoundsContainsProjected(pt, thinLines[j].p1, thinLines[j].p2, INTERSECTION_TOLERANCE)
+          ) {
+            continue;
+          }
+
+          const key = `${x.toFixed(4)}|${y.toFixed(4)}`;
+          const existingPoint = points.some(p => dist(p, pt) <= POINT_HIT_RADIUS);
+          if (existingPoint) continue;
+
+          if (!seen.has(key)) {
+            seen.set(key, {
+              x,
+              y,
+              lines: new Set([thinLines[i].key, thinLines[j].key]),
+            });
+          } else {
+            const entry = seen.get(key);
+            entry.lines.add(thinLines[i].key);
+            entry.lines.add(thinLines[j].key);
+          }
+        }
+      }
+
+      return [...seen.values()].map(item => ({
+        x: item.x,
+        y: item.y,
+        lineKeys: [...item.lines],
+      }));
+    }
+
+    function drawInfiniteLine(line, width, color) {
+      const pts = [];
+      const { a, b, c } = line;
+      const w = canvas.width;
+      const h = canvas.height;
+
+      if (Math.abs(b) > GEOM_EPS) {
+        const y0 = -(a * 0 + c) / b;
+        const yw = -(a * w + c) / b;
+        if (y0 >= 0 && y0 <= h) pts.push({ x: 0, y: y0 });
+        if (yw >= 0 && yw <= h) pts.push({ x: w, y: yw });
+      }
+      if (Math.abs(a) > GEOM_EPS) {
+        const x0 = -(b * 0 + c) / a;
+        const xh = -(b * h + c) / a;
+        if (x0 >= 0 && x0 <= w) pts.push({ x: x0, y: 0 });
+        if (xh >= 0 && xh <= w) pts.push({ x: xh, y: h });
+      }
+
+      const unique = [];
+      for (const p of pts) {
+        if (!unique.some(q => dist(p, q) < 0.5)) unique.push(p);
+      }
+      if (unique.length < 2) return;
+
+      ctx.beginPath();
+      ctx.moveTo(unique[0].x, unique[0].y);
+      ctx.lineTo(unique[1].x, unique[1].y);
+      ctx.lineWidth = width;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    }
+
+    function drawPoint(point) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, POINT_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = '#dc2626';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+    }
+
+    function drawHoverIntersectionMarker(intersection) {
+      ctx.beginPath();
+      ctx.arc(intersection.x, intersection.y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(37, 99, 235, 0.2)';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.85)';
+      ctx.stroke();
+    }
+
+    function getPointAt(pos) {
+      for (let i = points.length - 1; i >= 0; i--) {
+        if (dist(points[i], pos) <= POINT_HIT_RADIUS) return points[i];
+      }
+      return null;
+    }
+
+    function getThinLineHit(pos, thinLines) {
+      let best = null;
+      for (const thin of thinLines) {
+        const d = pointToLineDistance(pos, thin.line);
+        if (d > LINE_CLICK_TOLERANCE) continue;
+        const projected = projectPointToLine(pos, thin.line);
+        if (!segmentBoundsContainsProjected(projected, thin.p1, thin.p2, LINE_CLICK_TOLERANCE)) continue;
+        if (!best || d < best.distance) {
+          best = { thin, distance: d, projected };
+        }
+      }
+      return best;
+    }
+
+    function getIntersectionHit(pos, intersections) {
+      let best = null;
+      for (const item of intersections) {
+        const d = dist(pos, item);
+        if (d <= INTERSECTION_TOLERANCE && (!best || d < best.distance)) {
+          best = { ...item, distance: d };
+        }
+      }
+      return best;
+    }
+
+    function addPoint(x, y) {
+      points.push({ id: nextPointId++, x, y });
+    }
+
+    function exportConfiguration() {
+      const structures = computeStructures();
+      const payload = {
+        version: 2,
+        points: points.map(p => ({
+          id: p.id,
+          x: Number(p.x.toFixed(4)),
+          y: Number(p.y.toFixed(4))
+        })),
+        lines: structures.thickLines.map((line, index) => ({
+          id: index + 1,
+          pointIds: line.points.map(p => p.id)
+        }))
+      };
+      return JSON.stringify(payload, null, 2);
+    }
+
+    function importConfiguration(text) {
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (err) {
+        throw new Error('Invalid JSON.');
+      }
+
+      if (!parsed || !Array.isArray(parsed.points)) {
+        throw new Error('JSON must contain a points array.');
+      }
+
+      const importedPoints = parsed.points.map((p, index) => {
+        if (!p || typeof p.x !== 'number' || typeof p.y !== 'number' || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+          throw new Error(`Point ${index + 1} must have finite numeric x and y values.`);
+        }
+
+        const id = Number.isInteger(p.id) ? p.id : index + 1;
+        return {
+          id,
+          x: Math.max(0, Math.min(canvas.width, p.x)),
+          y: Math.max(0, Math.min(canvas.height, p.y)),
+        };
+      });
+
+      const ids = importedPoints.map(p => p.id);
+      const uniqueIds = new Set(ids);
+      if (uniqueIds.size !== ids.length) {
+        throw new Error('Point ids must be unique.');
+      }
+
+      if (parsed.lines !== undefined) {
+        if (!Array.isArray(parsed.lines)) {
+          throw new Error('If present, lines must be an array.');
+        }
+
+        const validIdSet = new Set(ids);
+        for (let i = 0; i < parsed.lines.length; i++) {
+          const line = parsed.lines[i];
+          if (!line || !Array.isArray(line.pointIds) || line.pointIds.length !== 3) {
+            throw new Error(`Line ${i + 1} must contain exactly 3 pointIds.`);
+          }
+          for (const pointId of line.pointIds) {
+            if (!validIdSet.has(pointId)) {
+              throw new Error(`Line ${i + 1} references unknown point id ${pointId}.`);
+            }
+          }
+        }
+      }
+
+      points = importedPoints;
+      nextPointId = Math.max(0, ...ids) + 1;
+    }
+
+    function removePoint(id) {
+      points = points.filter(p => p.id !== id);
+    }
+
+    function recomputeAndDraw() {
+      const structures = computeStructures();
+      const intersections = computeThinIntersections(structures.thinLines);
+      draw(structures, intersections);
+      updateCounts(structures);
+      return { structures, intersections };
+    }
+
+    function updateCounts(structures) {
+      pointCountEl.textContent = String(points.length);
+      lineCountEl.textContent = String(structures.thickLines.length);
+    }
+
+    function draw(structures, intersections) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const thin of structures.thinLines) {
+        const hovered = hoverThinLineKeys.has(thin.key);
+        drawInfiniteLine(thin.line, hovered ? 3 : 1.5, hovered ? '#2563eb' : '#94a3b8');
+      }
+
+      for (const thick of structures.thickLines) {
+        drawInfiniteLine(thick.line, 5, '#111827');
+      }
+
+      const hoveredIntersection = getIntersectionHit(mouse, intersections);
+      if (hoveredIntersection) {
+        drawHoverIntersectionMarker(hoveredIntersection);
+      }
+
+      for (const point of points) {
+        drawPoint(point);
+      }
+    }
+
+    function handleCanvasClick(evt) {
+      const pos = getMousePos(evt);
+      const { structures, intersections } = recomputeAndDraw();
+
+      const pointHit = getPointAt(pos);
+      if (pointHit) {
+        saveHistory();
+        removePoint(pointHit.id);
+        setStatus('Point deleted.');
+        recomputeAndDraw();
+        return;
+      }
+
+      const intersectionHit = getIntersectionHit(pos, intersections);
+      if (intersectionHit) {
+        saveHistory();
+        addPoint(intersectionHit.x, intersectionHit.y);
+        setStatus('Point created at a thin-line intersection.');
+        recomputeAndDraw();
+        return;
+      }
+
+      const thinHit = getThinLineHit(pos, structures.thinLines);
+      if (thinHit) {
+        saveHistory();
+        addPoint(thinHit.projected.x, thinHit.projected.y);
+        setStatus('Point snapped onto a thin line.');
+        recomputeAndDraw();
+        return;
+      }
+
+      const allHit = getThinLineHit(pos, structures.allLines
+        .filter(item => item.points.length >= 3)
+        .map(item => ({ ...item, p1: item.points[0], p2: item.points[item.points.length - 1] }))
+      );
+      if (allHit) {
+        setStatus('That line already contains three points, so no new point was added.');
+        return;
+      }
+
+      saveHistory();
+      addPoint(pos.x, pos.y);
+      setStatus('Point created.');
+      recomputeAndDraw();
+    }
+
+    function handleMouseMove(evt) {
+      mouse = getMousePos(evt);
+      const structures = computeStructures();
+      const intersections = computeThinIntersections(structures.thinLines);
+      const intersectionHit = getIntersectionHit(mouse, intersections);
+
+      if (intersectionHit) {
+        hoverThinLineKeys = new Set(intersectionHit.lineKeys);
+      } else {
+        const thinHit = getThinLineHit(mouse, structures.thinLines);
+        hoverThinLineKeys = thinHit ? new Set([thinHit.thin.key]) : new Set();
+      }
+
+      draw(structures, intersections);
+    }
+
+    function handleMouseLeave() {
+      mouse = { x: -1000, y: -1000 };
+      hoverThinLineKeys = new Set();
+      recomputeAndDraw();
+    }
+
+    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+
+    clearBtn.addEventListener('click', () => {
+      if (points.length === 0) return;
+      saveHistory();
+      points = [];
+      setStatus('Canvas cleared.');
+      recomputeAndDraw();
+    });
+
+    undoBtn.addEventListener('click', () => {
+      const snapshot = history.pop();
+      if (!snapshot) {
+        setStatus('Nothing to undo.');
+        return;
+      }
+      restoreState(snapshot);
+      setStatus('Undid the last action.');
+    });
+
+    exportBtn.addEventListener('click', async () => {
+      const json = exportConfiguration();
+      ioBox.value = json;
+      ioBox.focus();
+      ioBox.select();
+
+      try {
+        await navigator.clipboard.writeText(json);
+        setStatus('Configuration exported to the text box and copied to the clipboard.');
+      } catch (err) {
+        setStatus('Configuration exported to the text box.');
+      }
+    });
+
+    importBtn.addEventListener('click', () => {
+      const text = ioBox.value.trim();
+      if (!text) {
+        setStatus('Paste configuration JSON into the text box first.');
+        return;
+      }
+
+      try {
+        saveHistory();
+        importConfiguration(text);
+        recomputeAndDraw();
+        setStatus('Configuration imported.');
+      } catch (err) {
+        setStatus(err.message || 'Import failed.');
+      }
+    });
+
+    recomputeAndDraw();
+  </script>
+</body>
+</html>
