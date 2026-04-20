@@ -196,6 +196,62 @@
                 opacity: 0.85;
             }
 
+            .rotate-btns {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+                margin-top: 10px;
+                flex-wrap: wrap;
+            }
+
+            .rotate-group {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 0.4rem 0.65rem;
+            }
+
+            .rotate-group-label {
+                font-size: 0.68rem;
+                font-weight: 500;
+                color: var(--muted);
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                margin-right: 4px;
+                white-space: nowrap;
+            }
+
+            .rotate-btn {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                width: 2rem;
+                height: 2rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.05rem;
+                cursor: pointer;
+                color: var(--ink);
+                transition:
+                    background 0.12s,
+                    border-color 0.12s;
+                line-height: 1;
+                padding: 0;
+            }
+
+            .rotate-btn:hover {
+                background: #ece9e3;
+                border-color: rgba(0, 0, 0, 0.16);
+            }
+
+            .rotate-btn:active {
+                background: #dedad3;
+            }
+
             @media (max-width: 500px) {
                 .stat-val {
                     font-size: 1.2rem;
@@ -235,6 +291,43 @@
             <p class="hint">
                 Drag the white control points to rotate and position the line
             </p>
+
+            <div class="rotate-btns">
+                <div class="rotate-group">
+                    <span class="rotate-group-label">Around P1</span>
+                    <button
+                        class="rotate-btn"
+                        onclick="rotateLine(cp1, cp2, -0.2)"
+                        title="Rotate counterclockwise around P1"
+                    >
+                        ↺
+                    </button>
+                    <button
+                        class="rotate-btn"
+                        onclick="rotateLine(cp1, cp2, 0.2)"
+                        title="Rotate clockwise around P1"
+                    >
+                        ↻
+                    </button>
+                </div>
+                <div class="rotate-group">
+                    <span class="rotate-group-label">Around P2</span>
+                    <button
+                        class="rotate-btn"
+                        onclick="rotateLine(cp2, cp1, -0.2)"
+                        title="Rotate counterclockwise around P2"
+                    >
+                        ↺
+                    </button>
+                    <button
+                        class="rotate-btn"
+                        onclick="rotateLine(cp2, cp1, 0.2)"
+                        title="Rotate clockwise around P2"
+                    >
+                        ↻
+                    </button>
+                </div>
+            </div>
 
             <div class="win-banner" id="win-banner">
                 <p>
@@ -574,6 +667,23 @@
                 const rp = Math.round(rf * 100);
                 const bp = Math.round(bf * 100);
                 return Math.max(Math.abs(rp - 50), Math.abs(bp - 50));
+            }
+
+            function rotateLine(pivot, moving, angleDeg) {
+                if (won) return;
+                const rad = (angleDeg * Math.PI) / 180;
+                const cos = Math.cos(rad);
+                const sin = Math.sin(rad);
+                const dx = moving.x - pivot.x;
+                const dy = moving.y - pivot.y;
+                const nx = pivot.x + dx * cos - dy * sin;
+                const ny = pivot.y + dx * sin + dy * cos;
+                if (nx >= 0 && nx <= W && ny >= 0 && ny <= H) {
+                    moving.x = nx;
+                    moving.y = ny;
+                    draw();
+                    checkWin();
+                }
             }
 
             function checkWin() {
