@@ -471,13 +471,7 @@
                 draw();
             });
             canvas.addEventListener("mouseup", () => {
-                console.log("mouseup");
-                dragging = null;
-                if (!won && rp === 50 && bp === 50) {
-                    won = true;
-                    const banner = document.getElementById("win-banner");
-                    banner.style.display = "flex";
-                }
+                checkWin();
             });
             canvas.addEventListener(
                 "touchstart",
@@ -503,7 +497,7 @@
                 { passive: false },
             );
             canvas.addEventListener("touchend", () => {
-                dragging = null;
+                checkWin();
             });
 
             function initialDeviation(shapes) {
@@ -527,6 +521,15 @@
                 const rp = Math.round(rf * 100);
                 const bp = Math.round(bf * 100);
                 return Math.max(Math.abs(rp - 50), Math.abs(bp - 50));
+            }
+
+            function checkWin() {
+                dragging = null;
+                if (!won && rp === 50 && bp === 50) {
+                    won = true;
+                    const banner = document.getElementById("win-banner");
+                    banner.style.display = "flex";
+                }
             }
 
             function initGame() {
