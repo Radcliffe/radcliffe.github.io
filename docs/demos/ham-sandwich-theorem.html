@@ -152,33 +152,32 @@
                 font-weight: 300;
             }
 
-            .win-banner {
-                display: none;
+            #win-banner {
+                display: flex;
                 background: var(--green-bg);
                 border: 1px solid var(--green-border);
                 border-radius: 10px;
                 padding: 0.9rem 1.25rem;
                 margin-top: 10px;
-                display: none;
                 align-items: center;
                 justify-content: space-between;
                 gap: 12px;
             }
 
-            .win-banner p {
+            #win-banner p {
                 font-size: 0.85rem;
                 color: var(--green);
                 font-weight: 400;
                 line-height: 1.4;
             }
 
-            .win-banner p strong {
+            #win-banner p strong {
                 font-weight: 500;
                 display: block;
                 font-size: 0.95rem;
             }
 
-            .win-banner button {
+            #win-banner button {
                 background: var(--green);
                 color: #fff;
                 border: none;
@@ -193,7 +192,7 @@
                 flex-shrink: 0;
             }
 
-            .win-banner button:hover {
+            #win-banner button:hover {
                 opacity: 0.85;
             }
 
@@ -250,9 +249,9 @@
         <script>
             const canvas = document.getElementById("canvas");
             const ctx = canvas.getContext("2d");
+            const winBanner = document.getElementById("win-banner");
             const W = 720,
                 H = 440;
-            const SAMPLES = 55;
             let rp = 0;
             let bp = 0;
 
@@ -312,24 +311,78 @@
             }
 
             function computeFraction(shape, ax, ay, bx, by) {
-                const minX = Math.min(...shape.map((p) => p.x));
-                const maxX = Math.max(...shape.map((p) => p.x));
-                const minY = Math.min(...shape.map((p) => p.y));
-                const maxY = Math.max(...shape.map((p) => p.y));
-                const step = Math.max(maxX - minX, maxY - minY) / SAMPLES;
-                let inside = 0,
-                    total = 0;
-                for (let sx = minX; sx <= maxX; sx += step) {
-                    for (let sy = minY; sy <= maxY; sy += step) {
-                        if (pointInPoly(sx, sy, shape)) {
-                            total++;
-                            const side =
-                                (bx - ax) * (sy - ay) - (by - ay) * (sx - ax);
-                            if (side > 0) inside++;
-                        }
-                    }
+                const EPS = 1e-9;
+
+                function signedSide(p) {
+                    // > 0 means p is on the "inside" side
+                    return (by - ay) * (p.x - ax) - (bx - ax) * (p.y - ay);
                 }
-                return total === 0 ? 0.5 : inside / total;
+
+                function intersectSegmentWithLine(p1, p2) {
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+
+                    const denom = (bx - ax) * dy - (by - ay) * dx;
+                    if (Math.abs(denom) < EPS) return null; // parallel or nearly parallel
+
+                    const t =
+                        ((ax - p1.x) * (by - ay) - (ay - p1.y) * (bx - ax)) /
+                        -denom;
+
+                    return {
+                        x: p1.x + t * dx,
+                        y: p1.y + t * dy,
+                    };
+                }
+
+                function clipPolygonToPositiveSide(poly) {
+                    const out = [];
+                    for (let i = 0; i < poly.length; i++) {
+                        const curr = poly[i];
+                        const next = poly[(i + 1) % poly.length];
+
+                        const currSide = signedSide(curr);
+                        const nextSide = signedSide(next);
+
+                        const currInside = currSide > -EPS;
+                        const nextInside = nextSide > -EPS;
+
+                        if (currInside && nextInside) {
+                            // both inside: keep next
+                            out.push(next);
+                        } else if (currInside && !nextInside) {
+                            // leaving: keep intersection
+                            const hit = intersectSegmentWithLine(curr, next);
+                            if (hit) out.push(hit);
+                        } else if (!currInside && nextInside) {
+                            // entering: keep intersection then next
+                            const hit = intersectSegmentWithLine(curr, next);
+                            if (hit) out.push(hit);
+                            out.push(next);
+                        }
+                        // else both outside: keep nothing
+                    }
+                    return out;
+                }
+
+                function polygonArea(poly) {
+                    if (poly.length < 3) return 0;
+                    let sum = 0;
+                    for (let i = 0; i < poly.length; i++) {
+                        const p = poly[i];
+                        const q = poly[(i + 1) % poly.length];
+                        sum += p.x * q.y - q.x * p.y;
+                    }
+                    return Math.abs(sum) / 2;
+                }
+
+                const totalArea = polygonArea(shape);
+                if (totalArea < EPS) return 0.5;
+
+                const clipped = clipPolygonToPositiveSide(shape);
+                const clippedArea = polygonArea(clipped);
+
+                return clippedArea / totalArea;
             }
 
             function lineEndpoints() {
@@ -527,15 +580,14 @@
                 dragging = null;
                 if (!won && rp === 50 && bp === 50) {
                     won = true;
-                    const banner = document.getElementById("win-banner");
-                    banner.style.display = "flex";
+                    winBanner.style.visibility = "visible";
                 }
             }
 
             function initGame() {
                 won = false;
                 dragging = null;
-                document.getElementById("win-banner").style.display = "none";
+                winBanner.style.visibility = "hidden";
                 let shapes;
                 do {
                     shapes = generateShapes();
