@@ -253,6 +253,8 @@
             const W = 720,
                 H = 440;
             const SAMPLES = 55;
+            let rp = 0;
+            let bp = 0;
 
             let redShape,
                 blueShape,
@@ -427,8 +429,8 @@
                     ctx.stroke();
                 }
 
-                const rp = Math.round(rf * 100);
-                const bp = Math.round(bf * 100);
+                rp = Math.round(rf * 100);
+                bp = Math.round(bf * 100);
 
                 document.getElementById("red-pct").textContent = rp + "%";
                 document.getElementById("blue-pct").textContent = bp + "%";
@@ -438,12 +440,6 @@
                 const maxDiff = Math.max(diffR, diffB);
                 document.getElementById("diff-val").textContent =
                     maxDiff === 0 ? "0%" : maxDiff + "%";
-
-                if (!won && rp === 50 && bp === 50) {
-                    won = true;
-                    const banner = document.getElementById("win-banner");
-                    banner.style.display = "flex";
-                }
             }
 
             function getPos(e) {
@@ -475,7 +471,13 @@
                 draw();
             });
             canvas.addEventListener("mouseup", () => {
+                console.log("mouseup");
                 dragging = null;
+                if (!won && rp === 50 && bp === 50) {
+                    won = true;
+                    const banner = document.getElementById("win-banner");
+                    banner.style.display = "flex";
+                }
             });
             canvas.addEventListener(
                 "touchstart",
