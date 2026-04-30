@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2nd Grade Math Worksheet</title>
+  <style>
+    :root {
+      --ink: #111;
+      --line: #222;
+      --light-line: #bbb;
+      --paper: #fff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f2f2f2;
+      color: var(--ink);
+      font-family: "Times New Roman", Georgia, serif;
+    }
+
+    .page {
+      width: 8.5in;
+      min-height: 11in;
+      margin: 24px auto;
+      padding: 0.55in 0.45in;
+      background: var(--paper);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    .teacher-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+      font-size: 16px;
+      margin-bottom: 16px;
+    }
+
+    .blank {
+      display: inline-block;
+      min-width: 2.4in;
+      border-bottom: 1.5px solid var(--ink);
+      height: 1em;
+      vertical-align: baseline;
+    }
+
+    h1 {
+      margin: 0;
+      text-align: center;
+      font-size: 30px;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
+
+    .directions {
+      margin: 10px 0 18px;
+      text-align: center;
+      font-size: 17px;
+    }
+
+    .problems {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      border-top: 2px solid var(--line);
+      border-left: 2px solid var(--line);
+    }
+
+    .problem {
+      height: 1.08in;
+      border-right: 2px solid var(--line);
+      border-bottom: 2px solid var(--line);
+      padding: 9px 10px 7px;
+      position: relative;
+    }
+
+    .problem-number {
+      position: absolute;
+      top: 7px;
+      left: 8px;
+      font-size: 12px;
+      font-family: Arial, sans-serif;
+    }
+
+    .vertical-math {
+      width: 0.78in;
+      margin: 1px auto 0;
+      font-family: "Courier New", monospace;
+      font-size: 23px;
+      line-height: 1.05;
+    }
+
+    .top-number,
+    .bottom-row {
+      text-align: right;
+      white-space: pre;
+    }
+
+    .bottom-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 1px;
+    }
+
+    .answer-line {
+      height: 0.25in;
+      border-bottom: 1px solid var(--light-line);
+      margin: 6px auto 0;
+      width: 0.78in;
+    }
+
+    .footer {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+      color: #555;
+    }
+
+    .screen-controls {
+      width: 8.5in;
+      margin: 18px auto -8px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      font-family: Arial, sans-serif;
+    }
+
+    button {
+      border: 1px solid #888;
+      border-radius: 6px;
+      background: white;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #f7f7f7;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .screen-controls {
+        display: none;
+      }
+
+      .page {
+        margin: 0;
+        box-shadow: none;
+        width: 8.5in;
+        min-height: 11in;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="screen-controls" aria-hidden="true">
+    <button onclick="window.location.reload()">New Worksheet</button>
+    <button onclick="window.print()">Print</button>
+  </div>
+
+  <main class="page">
+    <div class="teacher-line">
+      <div>Name: <span class="blank"></span></div>
+      <div>Date: <span class="blank" style="min-width: 1.55in"></span></div>
+    </div>
+
+    <h1>Addition and Subtraction Practice</h1>
+    <p class="directions">Solve each problem. Show your best work and check your answers.</p>
+
+    <section id="problems" class="problems" aria-label="Math worksheet problems"></section>
+
+    <div class="footer">Great job! Remember to line up the ones and tens.</div>
+  </main>
+
+  <script>
+    const TOTAL_PROBLEMS = 40;
+    const answers = [86, 47];
+    const problemSet = new Set();
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function makeAddition(target) {
+      const a = randomInt(10, target - 10);
+      const b = target - a;
+      return { top: a, sign: "+", bottom: b };
+    }
+
+    function makeSubtraction(target) {
+      const bottom = randomInt(10, 99);
+      const top = target + bottom;
+      return { top, sign: "−", bottom };
+    }
+
+    function makeProblem(target) {
+      return Math.random() < 0.5 ? makeAddition(target) : makeSubtraction(target);
+    }
+
+    function problemKey(problem) {
+      return `${problem.top}${problem.sign}${problem.bottom}`;
+    }
+
+    function generateProblems() {
+      const problems = [];
+      let attempts = 0;
+
+      while (problems.length < TOTAL_PROBLEMS && attempts < 5000) {
+        attempts++;
+        const target = answers[problems.length % answers.length];
+        const problem = makeProblem(target);
+        const key = problemKey(problem);
+
+        if (!problemSet.has(key)) {
+          problemSet.add(key);
+          problems.push(problem);
+        }
+      }
+
+      return shuffle(problems);
+    }
+
+    function renderWorksheet() {
+      const container = document.getElementById("problems");
+      const problems = generateProblems();
+
+      container.innerHTML = problems.map((problem, index) => `
+        <article class="problem">
+          <span class="problem-number">${index + 1}.</span>
+          <div class="vertical-math" aria-label="Problem ${index + 1}">
+            <div class="top-number">${problem.top}</div>
+            <div class="bottom-row"><span>${problem.sign}</span><span>${problem.bottom}</span></div>
+            <div class="answer-line"></div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    renderWorksheet();
+  </script>
+</body>
+</html>
