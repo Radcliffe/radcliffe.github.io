@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Triangle Angles = 180°</title>
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap");
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                background: #ffffff;
+                font-family: "Nunito", "Arial Rounded MT Bold", sans-serif;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            header {
+                width: 100%;
+                padding: 16px 24px 8px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            h1 {
+                font-size: clamp(1rem, 2.8vw, 1.5rem);
+                font-weight: 900;
+                color: #222;
+            }
+
+            h1 .r {
+                color: #e8322a;
+            }
+            h1 .g {
+                color: #1e9e3e;
+            }
+            h1 .b {
+                color: #1565d8;
+            }
+
+            .hint {
+                font-size: 0.8rem;
+                font-weight: 700;
+                color: #bbb;
+            }
+
+            .canvas-wrap {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                padding: 0 12px;
+            }
+
+            canvas {
+                display: block;
+                cursor: default;
+            }
+
+            footer {
+                width: 100%;
+                padding: 8px 24px 14px;
+                display: flex;
+                justify-content: center;
+            }
+
+            .legend {
+                display: flex;
+                gap: 20px;
+                align-items: center;
+                background: #f4f4f4;
+                border-radius: 40px;
+                padding: 8px 24px;
+            }
+
+            .legend-item {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                font-size: 0.85rem;
+                font-weight: 800;
+            }
+
+            .swatch {
+                width: 15px;
+                height: 15px;
+                border-radius: 50%;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>
+                Every triangle's angles add up to <span class="r">1</span
+                ><span class="g">8</span><span class="b">0</span>°!
+            </h1>
+            <div class="hint">✦ drag the corners</div>
+        </header>
+
+        <div class="canvas-wrap"><canvas id="c"></canvas></div>
+
+        <footer>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="swatch" style="background: #e8322a"></div>
+                    <span style="color: #e8322a">Red</span>
+                </div>
+                <div class="legend-item">
+                    <div class="swatch" style="background: #1e9e3e"></div>
+                    <span style="color: #1e9e3e">Green</span>
+                </div>
+                <div class="legend-item">
+                    <div class="swatch" style="background: #1565d8"></div>
+                    <span style="color: #1565d8">Blue</span>
+                </div>
+            </div>
+        </footer>
+
+        <script>
+            const canvas = document.getElementById("c");
+            const ctx = canvas.getContext("2d");
+
+            const COL = {
+                R: { fill: "rgba(232,50,42,0.20)", stroke: "#e8322a" },
+                G: { fill: "rgba(30,158,62,0.20)", stroke: "#1e9e3e" },
+                B: { fill: "rgba(21,101,216,0.20)", stroke: "#1565d8" },
+            };
+
+            let verts = [
+                { x: 0, y: 0 },
+                { x: 0, y: 0 },
+                { x: 0, y: 0 },
+            ];
+            let dragging = null;
+            const GRAB_R = 22;
+
+            function initVerts() {
+                const w = canvas.width,
+                    h = canvas.height;
+                verts = [
+                    { x: w * 0.5, y: h * 0.08 },
+                    { x: w * 0.1, y: h * 0.91 },
+                    { x: w * 0.9, y: h * 0.91 },
+                ];
+            }
+
+            function resize() {
+                const wrap = canvas.parentElement;
+                const fH = document.querySelector("footer").offsetHeight;
+                const hH = document.querySelector("header").offsetHeight;
+                const pad = 10;
+                canvas.width = Math.max(300, wrap.clientWidth - pad * 2);
+                canvas.height = Math.max(
+                    200,
+                    window.innerHeight - hH - fH - pad * 2,
+                );
+                initVerts();
+                draw();
+            }
+
+            function mid(a, b) {
+                return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+            }
+            function centroid(p0, p1, p2) {
+                return {
+                    x: (p0.x + p1.x + p2.x) / 3,
+                    y: (p0.y + p1.y + p2.y) / 3,
+                };
+            }
+
+            /*
+  Draw the angle arc at vertex O of the sub-triangle (O, P, Q).
+  `inner` is a point known to be inside the sub-triangle (its centroid).
+  The arc is drawn on the side of the angle that faces inward.
+*/
+            function drawArc(O, P, Q, inner, col, radius) {
+                const a1 = Math.atan2(P.y - O.y, P.x - O.x);
+                const a2 = Math.atan2(Q.y - O.y, Q.x - O.x);
+
+                // Midpoint angle of the two candidate arcs
+                function midAngle(start, end, ccw) {
+                    // ccw = false means we go counter-clockwise (canvas default)
+                    let s = start,
+                        e = end;
+                    if (!ccw && e < s) e += 2 * Math.PI;
+                    if (ccw && s < e) s += 2 * Math.PI;
+                    return (s + e) / 2;
+                }
+
+                // Choose the arc whose midpoint direction (from O) has positive dot with O→inner
+                function score(ang) {
+                    const dx = inner.x - O.x,
+                        dy = inner.y - O.y;
+                    return Math.cos(ang - Math.atan2(dy, dx));
+                }
+
+                const mCCW = midAngle(a1, a2, false);
+                const mCW = midAngle(a1, a2, true);
+                const anticlockwise = score(mCW) > score(mCCW);
+
+                // Filled wedge
+                ctx.beginPath();
+                ctx.moveTo(O.x, O.y);
+                ctx.arc(O.x, O.y, radius, a1, a2, anticlockwise);
+                ctx.closePath();
+                ctx.fillStyle = col.fill;
+                ctx.fill();
+
+                // Arc outline only
+                ctx.beginPath();
+                ctx.arc(O.x, O.y, radius, a1, a2, anticlockwise);
+                ctx.strokeStyle = col.stroke;
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
+
+            function strokeTri(p0, p1, p2, color, lw) {
+                ctx.beginPath();
+                ctx.moveTo(p0.x, p0.y);
+                ctx.lineTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.closePath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lw;
+                ctx.stroke();
+            }
+
+            function fillTri(p0, p1, p2, color) {
+                ctx.beginPath();
+                ctx.moveTo(p0.x, p0.y);
+                ctx.lineTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+
+            function draw() {
+                const w = canvas.width,
+                    h = canvas.height;
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(0, 0, w, h);
+
+                const [A, B, C] = verts;
+                // D = mid(A,B),  E = mid(B,C),  F = mid(C,A)
+                const D = mid(A, B);
+                const E = mid(B, C);
+                const F = mid(C, A);
+
+                // Centroids of each sub-triangle (for arc direction)
+                const cTA = centroid(A, D, F);
+                const cTB = centroid(D, B, E);
+                const cTC = centroid(F, E, C);
+                const cTM = centroid(D, E, F);
+
+                // Proportional arc radii
+                const sides = [
+                    Math.hypot(B.x - A.x, B.y - A.y),
+                    Math.hypot(C.x - B.x, C.y - B.y),
+                    Math.hypot(A.x - C.x, A.y - C.y),
+                ];
+                const minS = Math.min(...sides);
+                const Ro = Math.min(46, minS * 0.27); // outer corners
+                const Ri = Math.min(32, minS * 0.19); // inner (midpoint) corners
+
+                // Light sub-triangle tints
+                fillTri(A, D, F, "rgba(232,50,42,0.05)");
+                fillTri(D, B, E, "rgba(30,158,62,0.05)");
+                fillTri(F, E, C, "rgba(21,101,216,0.05)");
+                fillTri(D, E, F, "rgba(130,60,200,0.05)");
+
+                // Sub-triangle edges
+                strokeTri(A, D, F, "#ddd", 1.5);
+                strokeTri(D, B, E, "#ddd", 1.5);
+                strokeTri(F, E, C, "#ddd", 1.5);
+                strokeTri(D, E, F, "#ddd", 1.5);
+
+                // Outer triangle
+                ctx.beginPath();
+                ctx.moveTo(A.x, A.y);
+                ctx.lineTo(B.x, B.y);
+                ctx.lineTo(C.x, C.y);
+                ctx.closePath();
+                ctx.strokeStyle = "#333";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // ─────────────────────────────────────────────────────────
+                // COLOR ASSIGNMENT — derived from alternate interior angles
+                // because each midsegment is parallel to the opposite side:
+                //   EF ∥ AB,  DF ∥ BC,  DE ∥ AC
+                //
+                // So every sub-triangle is similar to the big one, with:
+                //   Vertex A (corner)  → RED
+                //   Vertex B (corner)  → GREEN
+                //   Vertex C (corner)  → BLUE
+                //
+                // T_A  = {A, D, F} : A→R, D→G (alt-int with B), F→B (alt-int with C)
+                // T_B  = {D, B, E} : B→G, D→R (alt-int with A), E→B (alt-int with C)
+                // T_C  = {F, E, C} : C→B, F→R (alt-int with A), E→G (alt-int with B)
+                // T_mid= {D, E, F} (inverted): D→B (opp C), E→R (opp A), F→G (opp B)
+                // ─────────────────────────────────────────────────────────
+
+                // T_A: A(R), D(G), F(B)
+                drawArc(A, D, F, cTA, COL.R, Ro);
+                drawArc(D, A, F, cTA, COL.G, Ri);
+                drawArc(F, A, D, cTA, COL.B, Ri);
+
+                // T_B: B(G), D(R), E(B)
+                drawArc(B, D, E, cTB, COL.G, Ro);
+                drawArc(D, B, E, cTB, COL.R, Ri);
+                drawArc(E, D, B, cTB, COL.B, Ri);
+
+                // T_C: C(B), F(R), E(G)
+                drawArc(C, F, E, cTC, COL.B, Ro);
+                drawArc(F, E, C, cTC, COL.R, Ri);
+                drawArc(E, C, F, cTC, COL.G, Ri);
+
+                // T_mid: D(B), E(R), F(G)
+                drawArc(D, F, E, cTM, COL.B, Ri);
+                drawArc(E, D, F, cTM, COL.R, Ri);
+                drawArc(F, E, D, cTM, COL.G, Ri);
+
+                // ── Midpoint dots: tricolor ring shows all 3 meeting here
+                function drawMidDot(pt) {
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = "#fff";
+                    ctx.fill();
+
+                    const cols3 = [COL.R.stroke, COL.G.stroke, COL.B.stroke];
+                    // for (let i = 0; i < 3; i++) {
+                    //   ctx.beginPath();
+                    //   ctx.arc(pt.x, pt.y, 8,
+                    //     (i/3)*Math.PI*2 - Math.PI/2,
+                    //     ((i+1)/3)*Math.PI*2 - Math.PI/2);
+                    //   ctx.strokeStyle = cols3[i];
+                    //   ctx.lineWidth = 4.5;
+                    //   ctx.stroke();
+                    // }
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = "#444";
+                    ctx.fill();
+                }
+                drawMidDot(D);
+                drawMidDot(E);
+                drawMidDot(F);
+
+                // ── Corner handles
+                function drawCorner(pt, col) {
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 12, 0, Math.PI * 2);
+                    ctx.fillStyle = col.stroke;
+                    ctx.fill();
+                    ctx.strokeStyle = "#fff";
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+                drawCorner(A, COL.R);
+                drawCorner(B, COL.G);
+                drawCorner(C, COL.B);
+            }
+
+            // ── Interaction ──
+            function ptFromEvent(e) {
+                const r = canvas.getBoundingClientRect();
+                if (e.touches)
+                    return {
+                        x: e.touches[0].clientX - r.left,
+                        y: e.touches[0].clientY - r.top,
+                    };
+                return { x: e.clientX - r.left, y: e.clientY - r.top };
+            }
+            function nearest(pt) {
+                let best = null,
+                    bestD = GRAB_R;
+                verts.forEach((v, i) => {
+                    const d = Math.hypot(v.x - pt.x, v.y - pt.y);
+                    if (d < bestD) {
+                        bestD = d;
+                        best = i;
+                    }
+                });
+                return best;
+            }
+            function clamp(pt) {
+                return {
+                    x: Math.max(14, Math.min(canvas.width - 14, pt.x)),
+                    y: Math.max(14, Math.min(canvas.height - 14, pt.y)),
+                };
+            }
+
+            canvas.addEventListener("mousedown", (e) => {
+                dragging = nearest(ptFromEvent(e));
+                canvas.style.cursor =
+                    dragging !== null ? "grabbing" : "default";
+            });
+            canvas.addEventListener("mousemove", (e) => {
+                const pt = ptFromEvent(e);
+                if (dragging !== null) {
+                    const c = clamp(pt);
+                    verts[dragging].x = c.x;
+                    verts[dragging].y = c.y;
+                    draw();
+                } else {
+                    canvas.style.cursor =
+                        nearest(pt) !== null ? "grab" : "default";
+                }
+            });
+            canvas.addEventListener("mouseup", () => {
+                dragging = null;
+                canvas.style.cursor = "default";
+            });
+            canvas.addEventListener("mouseleave", () => {
+                dragging = null;
+            });
+            canvas.addEventListener(
+                "touchstart",
+                (e) => {
+                    e.preventDefault();
+                    dragging = nearest(ptFromEvent(e));
+                },
+                { passive: false },
+            );
+            canvas.addEventListener(
+                "touchmove",
+                (e) => {
+                    e.preventDefault();
+                    if (dragging !== null) {
+                        const c = clamp(ptFromEvent(e));
+                        verts[dragging].x = c.x;
+                        verts[dragging].y = c.y;
+                        draw();
+                    }
+                },
+                { passive: false },
+            );
+            canvas.addEventListener("touchend", () => (dragging = null));
+
+            window.addEventListener("resize", resize);
+            resize();
+        </script>
+    </body>
+</html>
